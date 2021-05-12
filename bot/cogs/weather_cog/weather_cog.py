@@ -9,6 +9,9 @@ import aiohttp
 import discord
 import discord.ext.commands as commands
 
+import imgkit
+from typing import Tuple
+
 import bot.extensions as ext
 from bot.bot_secrets import BotSecrets
 from bot.consts import Colors
@@ -17,6 +20,137 @@ from bot.messaging.events import Events
 log = logging.getLogger(__name__)
 URL_WEATHER = "https://api.openweathermap.org/data/2.5/onecall"
 URL_GEO = "https://geocode.xyz/"
+
+
+LOCATION_REPORT_INDEX = 0
+DAY_REPORT_INDEX = 1
+SPECIAL_REPORT_INDEX = 2
+class WeatherImage():
+    def __init__(self):
+        self.header = """
+            <html>
+                <head>
+                    <meta name="imgkit-format" content="png" />
+                </head>
+                <style>
+                    .weather-forcast {
+                        width: auto;
+                        color: blue;
+                        display: inline-flex;
+                    }
+
+                    .day-div {
+                        margin: 5px;
+                        text-align: center;
+                        width: 90px;
+                    }
+
+                    .day-div img {
+                        width: 80px;
+                        height: 80px;
+                    }
+
+                    .day-div #dates {
+                        font-size: 14px;
+                        line-height: 14px;
+                        padding-top: 12px;
+                        color: rgb(78, 75, 75);
+                    }
+
+                    .day-div #temperatures {
+                        font-weight: normal;
+                        font-size: 15px;
+                        line-height: 20px;
+                        margin-left: 4px;
+                        color: #222;
+                    }
+
+                    .special-report {
+                        width: auto;
+                    }
+
+                    .special-report #information {
+                        width: auto;
+                        color: rgb(78, 75, 75);
+                    }
+
+                    .special-report #value {
+                        /* width: auto; */
+                        color: black;
+                    }
+
+                    .loc-status {
+                        width: auto;
+                    }
+
+                    .loc-status #condition {
+                        font-size: 17px;
+                        color: #222;
+                    }
+
+                    .loc-status #location {
+                        font-size: 10px;
+                        color: rgb(78, 75, 75);
+                    }
+
+                    .overall {
+                        font-family: Arial, Helvetica, sans-serif;
+                        width: max-content;
+                        background: rgba(0, 0, 0, 0);
+                    }
+                </style>
+                <div class="overall">
+            """
+        # contains location/condition, a day array, and a special report
+        self.body = [["""<div><div class=loc-status>""","""</div></div>"""], ["""<div><div class="weather-forcast">""","""</div></div>"""], ["""<div><div class="special-report">""","""</div></div>"""]]
+
+        self.closing = """
+                </div>
+        </html>
+        """
+        pass
+    def add_day(self, day: str, temperature: Tuple[str,str]):
+        # the day should be from Mon, Tue, Wed, Thu, Fri, Sat, Sun
+        # TODO: make the assets dynamic
+        self.body[DAY_REPORT_INDEX].insert(-1, f"""
+            <div class="day-div">
+                <!--has day, image, and temperature -->
+                <!-- day -->
+                <div id="dates">{day}</div>
+                <!-- image -->
+                <div><img src="assets/rain.svg" alt="day"></div>
+                <!-- temperature -->
+                <div id="temperatures">{'/'.join(temperature)}&deg;</div>
+            </div>
+        """)
+        pass
+    def add_special_report(self, name: str, value: str):
+        # ex: Wind: 3 MPH NE
+        # insert in the second to last element
+        self.body[SPECIAL_REPORT_INDEX].insert(-1,f"""
+        <span id="information">
+            {name}
+            <span id="value">
+                <strong>
+                    {value}
+                </strong>
+            </span>
+        </span>
+        """)
+        pass
+    def add_location_condition(self, location: str, temperature: Tuple[str,str]):
+        # TODO: change condition dynamically
+        self.body[LOCATION_REPORT_INDEX].insert(-1,f"""
+            <div class=loc-status>
+                <!-- condition Overcast, etc -->
+                <div id="condition">Overcast</div>
+                <!-- location -->
+                <div id="location">{location}</div>
+            </div>
+        """)
+        pass
+    def get_message(self):
+        return self.header + ''.join([''.join(b) for b in self.body]) + self.closing
 
 
 class WeatherCog(commands.Cog):
