@@ -1,5 +1,10 @@
 # Thomas Delvaux
 # 12-16-2020
+# handle rendering event
+import concurrent.futures
+from PIL import Image
+import io
+import os
 
 import datetime as dt
 import logging
@@ -20,7 +25,9 @@ from bot.messaging.events import Events
 log = logging.getLogger(__name__)
 URL_WEATHER = "https://api.openweathermap.org/data/2.5/onecall"
 URL_GEO = "https://geocode.xyz/"
-
+# You get wonkey errors when you attempt to render the html assets
+# without a fixed path.
+ASSET_FOLDER = os.getcwd()+'/bot/cogs/weather_cog/assets'
 
 LOCATION_REPORT_INDEX = 0
 DAY_REPORT_INDEX = 1
@@ -108,7 +115,7 @@ class WeatherImage():
                 </div>
         </html>
         """
-        pass
+
     def add_day(self, day: str, temperature: Tuple[str,str]):
         # the day should be from Mon, Tue, Wed, Thu, Fri, Sat, Sun
         # TODO: make the assets dynamic
@@ -118,7 +125,7 @@ class WeatherImage():
                 <!-- day -->
                 <div id="dates">{day}</div>
                 <!-- image -->
-                <div><img src="assets/rain.svg" alt="day"></div>
+                <div><img src="{ASSET_FOLDER}/rain.svg" alt="day"></div>
                 <!-- temperature -->
                 <div id="temperatures">{'/'.join(temperature)}&deg;</div>
             </div>
@@ -151,7 +158,13 @@ class WeatherImage():
         pass
     def get_message(self):
         return self.header + ''.join([''.join(b) for b in self.body]) + self.closing
+    async def get_image(self, bot):
+        loop = bot.loop
+        with concurrent.futures.ProcessPoolExecutor() as pool:
+            return await loop.run_in_executor(pool, pillow_image_generator, self.get_message())
 
+def pillow_image_generator(message):
+    return Image.open(io.BytesIO(imgkit.from_string(message,False,options={'format': 'png', 'width': 460})))
 
 class WeatherCog(commands.Cog):
 
